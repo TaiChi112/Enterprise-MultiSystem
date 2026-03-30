@@ -17,5 +17,312 @@ services:
       timeout: 5s
       retries: 5
 
+  pos-api:
+    build:
+      context: .
+      dockerfile: services/pos-api/Dockerfile
+    container_name: pos_wms_pos_api
+    environment:
+      PORT: "3000"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: pos_wms
+      DB_SSLMODE: disable
+      RATE_LIMIT_MAX: "50"
+      RATE_LIMIT_WINDOW: 1s
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  iam-api:
+    build:
+      context: .
+      dockerfile: services/iam-api/Dockerfile
+    container_name: pos_wms_iam_api
+    environment:
+      IAM_PORT: "4001"
+      IAM_JWT_SECRET: dev-secret-change-me
+      IAM_JWT_ISSUER: iam-api
+      IAM_JWT_TTL: 1h
+    ports:
+      - "4001:4001"
+    restart: unless-stopped
+
+  crm-api:
+    build:
+      context: .
+      dockerfile: services/crm-api/Dockerfile
+    container_name: pos_wms_crm_api
+    environment:
+      CRM_PORT: "4002"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: pos_wms
+      DB_SSLMODE: disable
+    ports:
+      - "4002:4002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4002/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  oms-api:
+    build:
+      context: .
+      dockerfile: services/oms-api/Dockerfile
+    container_name: pos_wms_oms_api
+    environment:
+      OMS_PORT: "4003"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: pos_wms
+      DB_SSLMODE: disable
+    ports:
+      - "4003:4003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4003/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  scm-api:
+    build:
+      context: .
+      dockerfile: services/scm-api/Dockerfile
+    container_name: pos_wms_scm_api
+    environment:
+      SCM_PORT: "4004"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: pos_wms
+      DB_SSLMODE: disable
+      EDI_API_URL: http://edi-api:4005/edi/transmit
+      DEFAULT_SUPPLIER_ID: "1"
+      DEFAULT_REPLENISH_QTY: "50"
+      DEFAULT_SUPPLIER_NAME: Default Supplier
+      DEFAULT_SUPPLIER_CONTACT: default.supplier@example.com
+    ports:
+      - "4004:4004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      edi-api:
+        condition: service_started
+    restart: unless-stopped
+
+  edi-api:
+    build:
+      context: .
+      dockerfile: services/edi-api/Dockerfile
+    container_name: pos_wms_edi_api
+    environment:
+      EDI_PORT: "4005"
+    ports:
+      - "4005:4005"
+    restart: unless-stopped
+
+  hrm-api:
+    build:
+      context: .
+      dockerfile: services/hrm-api/Dockerfile
+    container_name: pos_wms_hrm_api
+    environment:
+      HRM_PORT: "4006"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: pos_wms
+      DB_SSLMODE: disable
+    ports:
+      - "4006:4006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  erp-api:
+    build:
+      context: .
+      dockerfile: services/erp-api/Dockerfile
+    container_name: pos_wms_erp_api
+    environment:
+      ERP_PORT: "4007"
+      OMS_API_URL: http://oms-api:4003
+      SCM_API_URL: http://scm-api:4004
+      HRM_API_URL: http://hrm-api:4006
+    ports:
+      - "4007:4007"
+    depends_on:
+      - oms-api
+      - scm-api
+      - hrm-api
+    restart: unless-stopped
+
+  mdm-api:
+    build:
+      context: .
+      dockerfile: services/mdm-api/Dockerfile
+    container_name: pos_wms_mdm_api
+    environment:
+      MDM_PORT: "4008"
+    ports:
+      - "4008:4008"
+    restart: unless-stopped
+
+  dss-api:
+    build:
+      context: .
+      dockerfile: services/dss-api/Dockerfile
+    container_name: pos_wms_dss_api
+    environment:
+      DSS_PORT: "4009"
+      ERP_API_URL: http://erp-api:4007
+      DSS_HTTP_TIMEOUT_MS: "4000"
+      DSS_HTTP_RETRIES: "1"
+    ports:
+      - "4009:4009"
+    depends_on:
+      - erp-api
+    restart: unless-stopped
+
+  ecm-api:
+    build:
+      context: .
+      dockerfile: services/ecm-api/Dockerfile
+    container_name: pos_wms_ecm_api
+    environment:
+      ECM_PORT: "4010"
+      ECM_UPLOAD_DIR: ./uploads
+    ports:
+      - "4010:4010"
+    volumes:
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+
+  idp-api:
+    build:
+      context: .
+      dockerfile: services/idp-api/Dockerfile
+    container_name: pos_wms_idp_api
+    environment:
+      IDP_PORT: "4011"
+    ports:
+      - "4011:4011"
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: pos_wms_api_gateway
+    environment:
+      GATEWAY_PORT: "8080"
+      POS_API_URL: http://pos-api:3000
+      IAM_API_URL: http://iam-api:4001
+      CRM_API_URL: http://crm-api:4002
+      OMS_API_URL: http://oms-api:4003
+      SCM_API_URL: http://scm-api:4004
+      HRM_API_URL: http://hrm-api:4006
+      ERP_API_URL: http://erp-api:4007
+      MDM_API_URL: http://mdm-api:4008
+      DSS_API_URL: http://dss-api:4009
+      ECM_API_URL: http://ecm-api:4010
+      IDP_API_URL: http://idp-api:4011
+      JWT_SECRET: dev-secret-change-me
+      JWT_ISSUER: iam-api
+      PROTECTED_PATHS: /api/orders,/api/customers,/scm,/hrm,/erp,/mdm,/dss,/ecm,/idp
+    ports:
+      - "8080:8080"
+    depends_on:
+      - pos-api
+      - iam-api
+      - crm-api
+      - oms-api
+      - scm-api
+      - hrm-api
+      - erp-api
+      - mdm-api
+      - dss-api
+      - ecm-api
+      - idp-api
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: pos_wms_prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - alertmanager
+      - pos-api
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: pos_wms_alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./observability:/etc/alertmanager/templates:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "9093:9093"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: pos_wms_grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3002:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:
