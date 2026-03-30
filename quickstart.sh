@@ -47,7 +47,7 @@ echo ""
 
 # Step 2: Build the application
 echo "🔨 Step 2: Building application..."
-go build -o bin/api ./cmd/api/main.go
+go build -o bin/api ./services/pos-api/cmd/api/main.go
 if [ $? -eq 0 ]; then
     echo "✓ Build successful"
 else

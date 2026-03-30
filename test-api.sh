@@ -47,7 +47,7 @@ start_server_if_needed() {
   fi
 
   log "${YELLOW}API server not running; starting with go run...${NC}"
-  (cd "${PROJECT_ROOT}" && go run ./cmd/api/main.go >/tmp/pos_wms_api.log 2>&1) &
+  (cd "${PROJECT_ROOT}" && go run ./services/pos-api/cmd/api/main.go >/tmp/pos_wms_api.log 2>&1) &
   SERVER_PID="$!"
 
   if ! wait_for_health; then

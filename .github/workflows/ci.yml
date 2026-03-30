@@ -72,7 +72,7 @@ jobs:
             -f schema.sql
 
       - name: Build
-        run: go build -o bin/api ./cmd/api/main.go
+        run: go build -o bin/api ./services/pos-api/cmd/api/main.go
 
       - name: Run Go tests
         run: go test ./...
