@@ -16,30 +16,19 @@ This MVP manages:
 ┌──────────────────────────────────────────────────────────┐
 │                    HTTP Clients                          │
 └──────────────────────┬───────────────────────────────────┘
-                       │ REST API
+           │ REST API via Gateway
 ┌──────────────────────▼───────────────────────────────────┐
-│              Handler Layer (Fiber Routes)               │
+│                 API Gateway (Go)                        │
 ├──────────────────────────────────────────────────────────┤
-│ /api/products, /api/branches, /api/inventory, /api/sales│
-└──────────────────────┬───────────────────────────────────┘
-                       │ Business Logic
-┌──────────────────────▼───────────────────────────────────┐
-│               Service Layer (Business Logic)            │
-├──────────────────────────────────────────────────────────┤
-│ - Product Management                                     │
-│ - Inventory Tracking                                     │
-│ - Sale Processing (ACID Transaction)                    │
-└──────────────────────┬───────────────────────────────────┘
-                       │ Data Access
-┌──────────────────────▼───────────────────────────────────┐
-│          Repository Layer (Data Access Layer)           │
-├──────────────────────────────────────────────────────────┤
-│ - Product Repository                                     │
-│ - Branch Repository                                      │
-│ - Inventory Repository                                   │
-│ - Order Repository                                       │
-└──────────────────────┬───────────────────────────────────┘
-                       │ SQL Queries
+│ JWT middleware + Reverse Proxy                           │
+└───────────────┬───────────────────────┬──────────────────┘
+       │                       │
+  /login ────▼───────┐       Protected APIs ───▼─────────┐
+┌──────────────────────────────┐  ┌──────────────────────────┐
+│         IAM API (Go)         │  │       POS API (Go)       │
+│  mock auth + JWT issuance     │  │  POS/WMS business logic  │
+└──────────────────────────────┘  └──────────────┬───────────┘
+                      │ SQL Queries
 ┌──────────────────────▼───────────────────────────────────┐
 │                   PostgreSQL Database                    │
 ├──────────────────────────────────────────────────────────┤
@@ -60,27 +49,27 @@ This MVP manages:
 
 ```
 POS_Basis_WMS/
-├── cmd/
-│   └── api/
-│       └── main.go                 # Entry point
-├── config/
-│   └── config.go                   # Configuration management
-├── internal/
-│   ├── domain/
-│   │   └── models.go               # Database models & DTOs
-│   ├── handler/
-│   │   └── handler.go              # HTTP handlers & routes
-│   ├── repository/
-│   │   ├── database.go             # Database connection
-│   │   ├── repository.go           # Product/Inventory CRUD
-│   │   └── order_repository.go     # Order/OrderItem CRUD
-│   └── service/
-│       └── service.go              # Business logic & transactions
-├── schema.sql                       # Database schema
-├── docker-compose.yml              # PostgreSQL setup
-├── .env.example                    # Environment variables template
-├── go.mod                          # Go module definition
-└── Makefile                        # Build commands
+├── services/
+│   ├── pos-api/
+│   │   ├── cmd/api/main.go
+│   │   ├── internal/
+│   │   └── Dockerfile
+│   ├── iam-api/
+│   │   ├── cmd/api/main.go
+│   │   ├── internal/
+│   │   └── Dockerfile
+│   └── api-gateway/
+│       ├── cmd/api/main.go
+│       └── Dockerfile
+├── pkg/
+│   ├── config/
+│   └── observability/
+├── observability/
+├── schema.sql
+├── docker-compose.yml
+├── .env.example
+├── go.mod
+└── Makefile
 
 ```
 
@@ -94,10 +83,10 @@ POS_Basis_WMS/
 ### 1. Setup Database
 
 ```bash
-# Start PostgreSQL with Docker
+# Start full ecosystem (postgres + pos-api + iam-api + gateway + observability)
 docker compose up -d
 
-# Verify connection
+# Verify database connection
 docker compose exec postgres psql -U postgres -d pos_wms -c "SELECT COUNT(*) FROM product;"
 ```
 
@@ -108,20 +97,32 @@ cp .env.example .env
 # Edit .env if needed (defaults are fine for Docker setup)
 ```
 
-### 3. Build & Run
+### 3. Build & Run (Local Without Docker)
 
 ```bash
 # Build
-go build -o bin/api ./cmd/api/main.go
+go build -o bin/api ./services/pos-api/cmd/api/main.go
 
 # Run
 ./bin/api
 
 # Or run directly
-go run ./cmd/api/main.go
+go run ./services/pos-api/cmd/api/main.go
 ```
 
-The server will start on `http://localhost:3000`
+The POS API server will start on http://localhost:3000
+
+For microservices flow, start IAM and Gateway separately:
+
+```bash
+# Terminal A
+go run ./services/iam-api/cmd/api/main.go
+
+# Terminal B
+go run ./services/api-gateway/cmd/api/main.go
+```
+
+Gateway public endpoint: http://localhost:8080
 
 ### 4. Test API
 
@@ -129,6 +130,184 @@ The server will start on `http://localhost:3000`
 # Health check
 curl http://localhost:3000/api/health
 ```
+
+### 5. Start Observability (Prometheus + Grafana)
+
+Observability now starts with the same docker compose command:
+
+```bash
+docker compose up -d
+```
+
+Access tools:
+- Prometheus UI: http://localhost:9090
+- Alertmanager UI: http://localhost:9093
+- Grafana UI: http://localhost:3002
+- Grafana login: `admin` / `admin`
+
+Useful checks:
+
+```bash
+# Confirm raw metrics from API
+curl http://localhost:3000/metrics
+
+# Quick snapshot for rate-limit hit count
+curl http://localhost:3000/metrics/rate-limit
+
+# Check Prometheus target health
+open http://localhost:9090/targets
+```
+
+Default scrape target is configured in [observability/prometheus.yml](observability/prometheus.yml) as:
+
+```yaml
+pos-api:3000
+```
+
+Stop the ecosystem:
+
+```bash
+docker compose down
+```
+
+### 5.1 Grafana Provisioning (Auto Dashboard + Datasource)
+
+Grafana is now pre-provisioned automatically on startup:
+- Datasource config: [observability/grafana/provisioning/datasources/prometheus.yml](observability/grafana/provisioning/datasources/prometheus.yml)
+- Dashboard provider: [observability/grafana/provisioning/dashboards/dashboards.yml](observability/grafana/provisioning/dashboards/dashboards.yml)
+- Dashboard template: [observability/grafana-dashboard-rate-limit-latency.json](observability/grafana-dashboard-rate-limit-latency.json)
+
+After `docker compose up -d`, dashboard should appear under folder `POS-WMS` without manual import.
+
+Included panels:
+- HTTP 429 / minute
+- Total 429
+- API p95 latency (seconds)
+- Request rate by status
+
+### 5.2 Prometheus Alert Rules
+
+Alert rules file: [observability/alerts.yml](observability/alerts.yml)
+
+Recording rules added for latency (to reduce Grafana query cost):
+- `pos_wms:http_request_duration_seconds:p95`
+- `pos_wms:http_request_duration_seconds:p99`
+
+Active alerts:
+- `POSWMSHighRateLimit429`: warning when `429` count increases above 200/min for 1 minute
+- `POSWMSVeryHighRateLimit429`: critical when `429` count increases above 1000/min for 30 seconds
+- `POSWMSHighP95Latency`: warning when p95 latency is above 750ms for 2 minutes
+
+After updating alert rules, reload Prometheus config:
+
+```bash
+curl -X POST http://localhost:9090/-/reload
+```
+
+Check alert status:
+
+```bash
+open http://localhost:9090/alerts
+```
+
+### 5.3 Alertmanager Routing (Webhook / Discord / Slack)
+
+Alertmanager config: [observability/alertmanager.yml](observability/alertmanager.yml)
+Template file: [observability/alertmanager-templates.tmpl](observability/alertmanager-templates.tmpl)
+
+Default route behavior:
+- `severity="critical"` -> `discord-webhook`
+- `severity="warning"` -> `slack-webhook`
+- fallback -> `webhook-default`
+
+By default this template points to local webhook endpoints on host machine:
+- `http://host.docker.internal:18080/alert/webhook`
+- `http://host.docker.internal:18080/alert/discord`
+- `http://host.docker.internal:18080/alert/slack`
+
+Replace those URLs in [observability/alertmanager.yml](observability/alertmanager.yml) with your real webhook URLs for production notifications.
+
+Formatted payloads:
+- Slack uses `title` + `text` templates from [observability/alertmanager-templates.tmpl](observability/alertmanager-templates.tmpl)
+- Discord uses `title` + `message` templates from [observability/alertmanager-templates.tmpl](observability/alertmanager-templates.tmpl)
+
+Reload Alertmanager after config changes:
+
+```bash
+curl -X POST http://localhost:9093/-/reload
+```
+
+### 6. Run Load Bot (STEP 3)
+
+The load bot sends concurrent POST requests to the sales endpoint using goroutines and a worker pool.
+
+```bash
+go run ./cmd/loadbot/main.go \
+  -url http://localhost:3000/api/sales \
+  -workers 100 \
+  -requests 5000 \
+  -branch-id 1 \
+  -product-ids 1,2 \
+  -quantity 1 \
+  -discount 0 \
+  -timeout 10s
+```
+
+Available flags:
+- `-url` target endpoint (default: `http://localhost:3000/api/sales`)
+- `-profile` load profile (`custom`, `smoke`, `stress`, `spike`)
+- `-workers` concurrent workers
+- `-requests` total requests to send
+- `-branch-id` branch ID in payload
+- `-product-ids` comma-separated product IDs for line items
+- `-quantity` quantity per item
+- `-discount` discount per item
+- `-timeout` HTTP timeout per request (Go duration format)
+
+Profile presets:
+- `smoke`  = workers=5, requests=100, timeout=5s
+- `stress` = workers=100, requests=5000, timeout=10s
+- `spike`  = workers=300, requests=10000, timeout=12s
+
+Example profile runs:
+
+```bash
+# Smoke check
+go run ./cmd/loadbot/main.go -profile smoke -branch-id 1 -product-ids 1
+
+# Stress run
+go run ./cmd/loadbot/main.go -profile stress -branch-id 1 -product-ids 1,2
+
+# Spike run
+go run ./cmd/loadbot/main.go -profile spike -branch-id 1 -product-ids 1
+```
+
+Output includes:
+- status code distribution (including transport errors)
+- total elapsed time
+- throughput (RPS)
+- latency summary (`min`, `avg`, `p50`, `p95`, `p99`, `max`)
+
+### 7. Rate Limiting (STEP 4)
+
+The API now applies rate limiting on `POST /api/sales` and returns HTTP `429` when the limit is exceeded.
+
+Configuration via environment variables:
+- `RATE_LIMIT_MAX` (default: `50`)
+- `RATE_LIMIT_WINDOW` (default: `1s`)
+
+Example:
+
+```bash
+RATE_LIMIT_MAX=20 RATE_LIMIT_WINDOW=1s go run ./services/pos-api/cmd/api/main.go
+```
+
+Then run the load bot with high concurrency and inspect status counts. You should see `429` responses.
+
+Prometheus metrics to watch for STEP 4:
+- `http_rate_limit_429_total` (dedicated counter for rate-limited responses)
+- `http_requests_total{status="429"}` (general request counter slice)
+- `http_request_duration_seconds` (latency under protection)
 
 ---
 
@@ -506,7 +685,7 @@ All endpoints return consistent error responses:
 Enable debug logging by setting `DEBUG=1`:
 
 ```bash
-DEBUG=1 go run ./cmd/api/main.go
+DEBUG=1 go run ./services/pos-api/cmd/api/main.go
 ```
 
 Check PostgreSQL logs:
