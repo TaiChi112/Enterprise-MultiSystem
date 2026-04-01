@@ -1,0 +1,45 @@
+groups:
+  - name: pos_wms_recording_rules
+    interval: 10s
+    rules:
+      - record: pos_wms:http_request_duration_seconds:p95
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route))
+
+      - record: pos_wms:http_request_duration_seconds:p99
+        expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route))
+
+  - name: pos_wms_rate_limit_alerts
+    interval: 10s
+    rules:
+      - alert: POSWMSHighRateLimit429
+        expr: sum(increase(http_rate_limit_429_total[1m])) > 200
+        for: 1m
+        labels:
+          severity: warning
+          service: pos_wms_api
+        annotations:
+          summary: "High HTTP 429 volume on POS/WMS API"
+          description: "Rate limiter is returning more than 200 HTTP 429 responses per minute. Check load source and limiter policy."
+
+      - alert: POSWMSVeryHighRateLimit429
+        expr: sum(increase(http_rate_limit_429_total[1m])) > 1000
+        for: 30s
+        labels:
+          severity: critical
+          service: pos_wms_api
+        annotations:
+          summary: "Critical HTTP 429 spike on POS/WMS API"
+          description: "Rate limiter is returning more than 1000 HTTP 429 responses per minute. Possible attack or runaway client."
+
+  - name: pos_wms_latency_alerts
+    interval: 10s
+    rules:
+      - alert: POSWMSHighP95Latency
+        expr: pos_wms:http_request_duration_seconds:p95 > 0.75
+        for: 2m
+        labels:
+          severity: warning
+          service: pos_wms_api
+        annotations:
+          summary: "High API p95 latency"
+          description: "p95 latency is above 750ms for at least 2 minutes. Investigate DB, lock contention, or traffic spikes."
