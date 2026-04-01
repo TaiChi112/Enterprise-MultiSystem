@@ -1,0 +1,42 @@
+global:
+  resolve_timeout: 5m
+
+templates:
+  - /etc/alertmanager/templates/*.tmpl
+
+route:
+  receiver: webhook-default
+  group_by: ["alertname", "service", "severity"]
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 2m
+  routes:
+    - matchers:
+        - severity="critical"
+      receiver: discord-webhook
+    - matchers:
+        - severity="warning"
+      receiver: slack-webhook
+
+receivers:
+  - name: webhook-default
+    webhook_configs:
+      - url: http://host.docker.internal:18080/alert/webhook
+        send_resolved: true
+
+  - name: discord-webhook
+    discord_configs:
+      - webhook_url: http://host.docker.internal:18080/alert/discord
+        title: '{{ template "poswms.discord.title" . }}'
+        message: '{{ template "poswms.discord.message" . }}'
+        send_resolved: true
+
+  - name: slack-webhook
+    slack_configs:
+      - api_url: http://host.docker.internal:18080/alert/slack
+        channel: "#pos-wms-alerts"
+        username: "alertmanager"
+        title: '{{ template "poswms.slack.title" . }}'
+        text: '{{ template "poswms.slack.text" . }}'
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+        send_resolved: true
