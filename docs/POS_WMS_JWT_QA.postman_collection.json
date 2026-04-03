@@ -1,0 +1,308 @@
+{
+  "info": {
+    "name": "POS WMS JWT QA",
+    "description": "QA collection for JWT gateway auth scenarios (AUTH-001..AUTH-005). Import directly into Postman.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Login (Get Valid Token)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "login"
+          ]
+        },
+        "description": "Login via gateway and capture valid access token into collection variable valid_token."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Login response has access token', function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body).to.have.property('data');",
+              "  pm.expect(body.data).to.have.property('access_token');",
+              "  pm.expect(body.data.access_token).to.be.a('string').and.not.empty;",
+              "});",
+              "",
+              "(function persistToken() {",
+              "  var body = pm.response.json();",
+              "  if (body && body.data && body.data.access_token) {",
+              "    pm.collectionVariables.set('valid_token', body.data.access_token);",
+              "  }",
+              "})();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "AUTH-001 - No Authorization Header",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/orders/123",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "123"
+          ]
+        },
+        "description": "Expected 401 when Authorization header is missing."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 401', function () {",
+              "  pm.response.to.have.status(401);",
+              "});",
+              "",
+              "pm.test('Response has success=false', function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body.success).to.eql(false);",
+              "});",
+              "",
+              "pm.test('Response contains error field', function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body).to.have.property('error');",
+              "  pm.expect(body.error).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "AUTH-002 - Malformed Token",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer malformed.token"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/orders/123",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "123"
+          ]
+        },
+        "description": "Expected 401 for malformed JWT token."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 401', function () {",
+              "  pm.response.to.have.status(401);",
+              "});",
+              "",
+              "pm.test('Response has success=false', function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body.success).to.eql(false);",
+              "});",
+              "",
+              "pm.test('Response contains error field', function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body).to.have.property('error');",
+              "  pm.expect(body.error).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "AUTH-003 - Expired Token",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{expired_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/orders/123",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "123"
+          ]
+        },
+        "description": "Expected 401 for expired JWT token."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 401', function () {",
+              "  pm.response.to.have.status(401);",
+              "});",
+              "",
+              "pm.test('Response has success=false', function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body.success).to.eql(false);",
+              "});",
+              "",
+              "pm.test('Response contains error field', function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body).to.have.property('error');",
+              "  pm.expect(body.error).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "AUTH-004 - Wrong Issuer Token",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{wrong_issuer_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/orders/123",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "123"
+          ]
+        },
+        "description": "Expected 401 when token issuer does not match gateway policy."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 401', function () {",
+              "  pm.response.to.have.status(401);",
+              "});",
+              "",
+              "pm.test('Response has success=false', function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body.success).to.eql(false);",
+              "});",
+              "",
+              "pm.test('Response contains error field', function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body).to.have.property('error');",
+              "  pm.expect(body.error).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "AUTH-005 - Valid Token (Control)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{valid_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/orders/123",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "123"
+          ]
+        },
+        "description": "Control case: valid token should pass gateway auth and be forwarded upstream."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is forwarded from upstream (not 401)', function () {",
+              "  pm.expect(pm.response.code).to.not.eql(401);",
+              "});",
+              "",
+              "pm.test('Gateway accepted valid token', function () {",
+              "  pm.expect([200, 404, 400, 422]).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "valid_token",
+      "value": ""
+    },
+    {
+      "key": "expired_token",
+      "value": ""
+    },
+    {
+      "key": "wrong_issuer_token",
+      "value": ""
+    }
+  ]
+}
