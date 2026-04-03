@@ -1,0 +1,30 @@
+{{ define "poswms.common.title" -}}
+[{{ .Status | toUpper }}][{{ .CommonLabels.severity | toUpper }}] {{ .CommonLabels.alertname }}
+{{- end }}
+
+{{ define "poswms.common.body" -}}
+Service: {{ .CommonLabels.service }}
+Severity: {{ .CommonLabels.severity }}
+Alerts: {{ len .Alerts }}
+{{ if .CommonAnnotations.summary }}Summary: {{ .CommonAnnotations.summary }}{{ end }}
+{{ if .CommonAnnotations.description }}
+Description: {{ .CommonAnnotations.description }}{{ end }}
+{{ if .CommonLabels.route }}
+Route: {{ .CommonLabels.route }}{{ end }}
+{{- end }}
+
+{{ define "poswms.slack.title" -}}
+{{ template "poswms.common.title" . }}
+{{- end }}
+
+{{ define "poswms.slack.text" -}}
+{{ template "poswms.common.body" . }}
+{{- end }}
+
+{{ define "poswms.discord.title" -}}
+{{ template "poswms.common.title" . }}
+{{- end }}
+
+{{ define "poswms.discord.message" -}}
+{{ template "poswms.common.body" . }}
+{{- end }}
