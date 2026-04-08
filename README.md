@@ -10,6 +10,127 @@ This MVP manages:
 - **Sales Transactions**: Process orders with automatic inventory deduction (ACID properties)
 - **Order History**: Complete transaction audit trail with timestamps
 
+## 📘 Enterprise Systems Documentation
+
+Business-friendly documentation (Thai + English technical terms) for all systems is available in:
+- [docs/systems/README.md](docs/systems/README.md)
+- [Phase 9 Documentation Focus Plan](docs/PHASE9_DOCS_FOCUS_PLAN.md)
+- [Executive Summary (Thai)](docs/systems/EXECUTIVE_SUMMARY.md)
+- [Executive Summary (English)](docs/systems/EXECUTIVE_SUMMARY_EN.md)
+- [KPI Baseline Alignment Workbook](docs/systems/KPI_BASELINE_ALIGNMENT.md)
+- [Owner-Level KPI Scoreboard](docs/systems/KPI_OWNER_SCOREBOARD.md)
+- [KPI Metric Spec (Grafana/BI Ready)](docs/systems/KPI_METRIC_SPEC.md)
+- [Monthly Review Pack (1 Page + 5 Slides)](docs/systems/MONTHLY_REVIEW_PACK.md)
+- [KPI Actual Data Templates](docs/systems/templates/README.md)
+- [Owner Scoreboard CSV (BI Import)](docs/systems/templates/kpi_owner_scoreboard_current.csv)
+- [KPI SQL DDL (Dashboard Tables)](migrations/20260408_create_kpi_dashboard_tables.sql)
+- [Grafana KPI Provisioning](observability/grafana/provisioning/dashboards/enterprise-kpi-dashboards.yml)
+
+Grafana dashboard JSON skeletons:
+- [Executive Summary Dashboard](observability/grafana/dashboards/enterprise-kpi-executive-summary.json)
+- [Owner Scoreboard Dashboard](observability/grafana/dashboards/enterprise-kpi-owner-scoreboard.json)
+- [Risk and Trend Dashboard](observability/grafana/dashboards/enterprise-kpi-risk-trend.json)
+
+Per-system pages:
+- [API Gateway](docs/systems/api-gateway.md)
+- [IAM (Identity and Access Management)](docs/systems/iam.md)
+- [POS (Point of Sale)](docs/systems/pos.md)
+- [CRM (Customer Relationship Management)](docs/systems/crm.md)
+- [OMS (Order Management System)](docs/systems/oms.md)
+- [SCM (Supply Chain Management)](docs/systems/scm.md)
+- [EDI (Electronic Data Interchange)](docs/systems/edi.md)
+- [HRM (Human Resource Management)](docs/systems/hrm.md)
+- [ERP (Enterprise Resource Planning)](docs/systems/erp.md)
+- [MDM (Master Data Management)](docs/systems/mdm.md)
+- [DSS (Decision Support System)](docs/systems/dss.md)
+- [ECM (Enterprise Content Management)](docs/systems/ecm.md)
+- [IDP (Intelligent Document Processing)](docs/systems/idp.md)
+
+## 🔄 End-to-End Enterprise Workflows
+
+### 1. Order-to-Cash (Retail Flow)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Customer
+  participant App as Store App
+  participant GW as API Gateway
+  participant IAM as IAM
+  participant POS as POS
+  participant CRM as CRM
+  participant OMS as OMS
+  participant ERP as ERP
+  participant DSS as DSS
+
+  Customer->>App: Start checkout
+  App->>GW: Login request
+  GW->>IAM: Authenticate user
+  IAM-->>GW: JWT token
+  GW-->>App: Access token
+
+  App->>GW: Create sale (Bearer JWT)
+  GW->>POS: Forward sale request
+  POS->>CRM: Validate customer profile
+  CRM-->>POS: Loyalty/customer status
+  POS->>OMS: Create order lifecycle
+  OMS-->>POS: Order ID and status
+  POS-->>GW: Sale completed
+  GW-->>App: Checkout result
+
+  OMS->>ERP: Revenue signal
+  ERP->>DSS: Financial summary for insight
+```
+
+### 2. Procure-to-Replenish (Supply Chain Flow)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Planner as Procurement Planner
+  participant GW as API Gateway
+  participant SCM as SCM
+  participant EDI as EDI
+  participant Supplier as Supplier
+  participant ERP as ERP
+
+  Planner->>GW: Create purchase order
+  GW->>SCM: Forward PO request
+  SCM->>SCM: Validate supplier and quantity
+  SCM->>EDI: Transform and transmit PO
+  EDI->>Supplier: Send standardized message
+  Supplier-->>EDI: Acknowledgement
+  EDI-->>SCM: Delivery status
+  SCM-->>GW: PO accepted
+  GW-->>Planner: PO tracking result
+  SCM->>ERP: Purchase cost update
+```
+
+### 3. Document-to-Decision (Back-office Intelligence Flow)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Clerk as Back-office Clerk
+  participant GW as API Gateway
+  participant ECM as ECM
+  participant IDP as IDP
+  participant MDM as MDM
+  participant ERP as ERP
+  participant DSS as DSS
+  participant Exec as Executive Team
+
+  Clerk->>GW: Upload invoice document
+  GW->>ECM: Store file and metadata
+  ECM->>IDP: Request field extraction
+  IDP-->>ECM: Structured fields
+  ECM->>MDM: Validate master-data fields
+  MDM-->>ECM: Validation result
+  ECM->>ERP: Submit approved financial data
+  ERP->>DSS: Provide consolidated summary
+  DSS-->>Exec: Trend insight and alerts
+```
+
 ## 🏗️ Architecture
 
 ```
