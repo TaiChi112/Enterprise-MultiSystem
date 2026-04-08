@@ -1,0 +1,68 @@
+{
+  "id": null,
+  "uid": "enterprise-kpi-owner",
+  "title": "Enterprise KPI - Owner Scoreboard",
+  "tags": ["enterprise", "kpi", "owner", "scoreboard"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1h",
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Owner KPI Scoreboard (Current Cycle)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-kpi"
+      },
+      "gridPos": { "h": 18, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT owner_team, metric_key, baseline_value, current_month_value, monthly_target, quarterly_target, computed_status AS status, priority_action FROM v_kpi_owner_scoreboard_rag ORDER BY owner_team"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "status" },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "Green": { "text": "Green", "color": "green" } } },
+                  { "type": "value", "options": { "Amber": { "text": "Amber", "color": "yellow" } } },
+                  { "type": "value", "options": { "Red": { "text": "Red", "color": "red" } } }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "type": "bargauge",
+      "title": "KPI Count by RAG Status",
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-kpi"
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 18 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT computed_status AS status, COUNT(*) AS value FROM v_kpi_owner_scoreboard_rag GROUP BY computed_status ORDER BY computed_status"
+        }
+      ]
+    }
+  ]
+}

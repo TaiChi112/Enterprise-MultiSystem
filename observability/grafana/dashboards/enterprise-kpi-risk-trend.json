@@ -1,0 +1,50 @@
+{
+  "id": null,
+  "uid": "enterprise-kpi-risk",
+  "title": "Enterprise KPI - Risk and Trend",
+  "tags": ["enterprise", "kpi", "risk", "trend"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1h",
+  "time": {
+    "from": "now-180d",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Target Gap Trend (Top Risks)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-kpi"
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT a.month AS time, a.metric_key, CASE WHEN s.direction = 'higher_is_better' THEN (a.actual_value - s.monthly_target) ELSE (s.monthly_target - a.actual_value) END AS value FROM kpi_monthly_actuals a JOIN kpi_owner_scoreboard_current s ON a.metric_key = s.metric_key WHERE a.metric_key IN ('stockout_rate_pct','master_data_validation_pass_pct','insight_adoption_rate_pct','document_retrieval_time_p95_sec') ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Risk Register Snapshot",
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-kpi"
+      },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 10 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT owner_team, metric_key, computed_status AS status, current_month_value, monthly_target, priority_action FROM v_kpi_owner_scoreboard_rag WHERE computed_status IN ('Amber', 'Red') ORDER BY CASE computed_status WHEN 'Red' THEN 0 ELSE 1 END, owner_team"
+        }
+      ]
+    }
+  ]
+}

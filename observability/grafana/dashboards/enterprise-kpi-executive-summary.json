@@ -1,0 +1,105 @@
+{
+  "id": null,
+  "uid": "enterprise-kpi-exec",
+  "title": "Enterprise KPI - Executive Summary",
+  "tags": ["enterprise", "kpi", "executive"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1h",
+  "time": {
+    "from": "now-180d",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "month",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "postgres-kpi"
+        },
+        "query": "SELECT DISTINCT month::text FROM kpi_monthly_actuals ORDER BY 1 DESC",
+        "refresh": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "End-to-End Transaction Success (%)",
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-kpi"
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT current_month_value AS value FROM kpi_owner_scoreboard_current WHERE metric_key='checkout_success_rate_pct' LIMIT 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 98 },
+              { "color": "green", "value": 99 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Repeat Purchase Rate (%)",
+      "datasource": { "type": "postgres", "uid": "postgres-kpi" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT current_month_value AS value FROM kpi_owner_scoreboard_current WHERE metric_key='repeat_purchase_rate_pct' LIMIT 1"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Purchase Cost Variance (%)",
+      "datasource": { "type": "postgres", "uid": "postgres-kpi" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT current_month_value AS value FROM kpi_owner_scoreboard_current WHERE metric_key='stockout_rate_pct' LIMIT 1"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Executive KPI Trend (Last 6 Months)",
+      "datasource": { "type": "postgres", "uid": "postgres-kpi" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT month AS time, metric_key, actual_value AS value FROM kpi_monthly_actuals WHERE metric_key IN ('checkout_success_rate_pct','repeat_purchase_rate_pct','pl_reconciliation_accuracy_pct','master_data_validation_pass_pct') ORDER BY 1"
+        }
+      ]
+    }
+  ]
+}
