@@ -4,7 +4,7 @@ go 1.23.0
 
 require (
 	github.com/gofiber/adaptor/v2 v2.2.1
-	github.com/gofiber/fiber/v2 v2.52.12
+	github.com/gofiber/fiber/v2 v2.52.13
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/lib/pq v1.12.0
 	github.com/prometheus/client_golang v1.23.2
